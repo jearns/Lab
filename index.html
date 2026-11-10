@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light"><title>Tim · 运动健康</title>
+<style>
+:root{--ink:#182c25;--muted:#52665b;--green:#234f3e;--paper:#f4f3eb;--line:#d9dfd3}
+*{box-sizing:border-box}body{margin:0;background:#dfe7df;color:var(--ink);font:16px/1.5 system-ui,sans-serif}
+.app{width:min(100%,480px);height:100vh;height:100dvh;margin:auto;display:grid;grid-template-rows:auto minmax(0,1fr) auto;background:var(--paper);box-shadow:0 0 70px #234f3e28}
+header{padding:max(15px,env(safe-area-inset-top)) 20px 12px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line)}
+.brand{font:bold 30px Georgia,serif}.badge{color:var(--muted);font-size:13px}
+main{overflow:auto;overscroll-behavior:contain;padding:16px 18px 24px}section[hidden]{display:none}
+nav{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:7px 12px max(8px,env(safe-area-inset-bottom));border-top:1px solid var(--line);background:var(--paper)}
+button,input,textarea,select{font:inherit}button{cursor:pointer;border:0;border-radius:13px;padding:10px 13px;color:var(--green);background:#e5ece1;min-height:44px}button[aria-current=true],.primary{background:var(--green);color:white}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #3a795e;outline-offset:2px}
+.hero,.card{padding:16px;border-radius:19px;margin:0 0 12px}.hero{background:var(--green);color:#fff}.hero p{color:#e1eee4}.hero button{background:#edf5e8;color:#173d2e}
+.card{background:#fff;border:1px solid var(--line)}h1,h2,h3,p{margin:0 0 8px}h1{font-size:25px}h2{font-size:21px}h3{font-size:16px}
+small,.hint{color:var(--muted);font-size:13px}.hero small{color:#e1eee4}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+label{display:block;margin:0 0 10px;font-size:14px}input,textarea,select{width:100%;border:1px solid #b7c6b9;border-radius:9px;padding:8px;color:var(--ink);background:#fff;margin-top:3px;min-width:0}
+textarea{resize:vertical;min-height:70px}.actions{display:flex;gap:8px;flex-wrap:wrap}.metric{font-size:21px;font-weight:bold}.record{border-top:1px solid var(--line);padding:10px 0}.record p{overflow-wrap:anywhere;white-space:pre-wrap}.status{min-height:22px;color:var(--green);overflow-wrap:anywhere}
+svg{width:100%;display:block}a{color:inherit}.danger{color:#8f332b}
+</style>
+</head>
+<body>
+<div class="app">
+<header><div class="brand">Tim</div><div class="badge">运动健康 · 私人记录</div></header>
+<main id="screen">
+<section id="home">
+<div class="hero"><small id="today"></small><h1>把身体练回来</h1><p>先从双肩康复开始。每天记录一点，按身体的反应调整节奏。</p><button data-go="log">开始今日打卡</button></div>
+<div class="card"><h3>最近一次记录</h3><div id="summary" class="grid"></div><p id="latestDate" class="hint"></p></div>
+<div class="card"><h3>今日参考</h3><p id="guidance"></p><small>按记录显示一般康复提示。训练方案以医生和治疗师意见为准。<a href="https://www.nhsinform.scot/illnesses-and-conditions/muscle-bone-and-joints/arm-shoulder-and-hand-problems-and-conditions/exercises-for-shoulder-problems" target="_blank" rel="noopener">动作反应参考</a></small></div>
+</section>
+<section id="log" hidden>
+<h2>肩部康复打卡</h2><p class="hint">疼痛 0–10 分。外旋从前臂朝正前方的 0° 起算，记舒服范围；没测就留空。</p>
+<form id="entry" class="card">
+<label>日期<input name="date" type="date" required></label>
+<div class="grid">
+<label>左肩疼痛<input name="leftPain" type="number" min="0" max="10" step="1"></label>
+<label>右肩疼痛<input name="rightPain" type="number" min="0" max="10" step="1"></label>
+<label>左肩主动外旋 °<input name="leftAngle" type="number" min="0" max="180"></label>
+<label>右肩主动外旋 °<input name="rightAngle" type="number" min="0" max="180"></label>
+</div>
+<label>夜间痛醒<select name="wake"><option value="">未记录</option><option>没有</option><option>有</option></select></label>
+<label>脱衣难度<select name="dress"><option value="">未记录</option><option>轻松</option><option>有点困难</option><option>明显困难</option></select></label>
+<label>上次训练后次日反应<select name="response"><option value="">未记录</option><option>更轻松</option><option>差不多</option><option>更痛</option></select></label>
+<label>训练、理疗或其他备注<textarea name="note" maxlength="3000"></textarea></label>
+<button class="primary" type="submit">保存当天记录</button>
+</form></section>
+<section id="trends" hidden>
+<h2>恢复趋势</h2>
+<div class="card"><label>指标<select id="metric"><option value="pain">疼痛 0–10</option><option value="angle">主动外旋 °</option></select></label><div id="chart"></div><small>绿线左肩 · 棕线右肩 · 最多 14 条记录，按记录顺序显示，空白数据不画点。</small></div>
+<div class="card"><h3>记录历史</h3><div id="history"></div></div>
+</section>
+<section id="profile" hidden>
+<h2>健康档案</h2>
+<form id="profileForm" class="card">
+<label>称呼<input name="name" maxlength="60"></label>
+<label>年龄<input name="age" type="number" min="1" max="120"></label>
+<label>关注目标<textarea name="goal" maxlength="3000"></textarea></label>
+<label>症状与就诊时间线<textarea name="timeline" maxlength="6000"></textarea></label>
+<button class="primary" type="submit">保存档案</button>
+</form>
+<div class="card"><h3>备份与迁移</h3><p class="hint">档案留在当前浏览器和网址下。换域名、换设备前先导出，再到新网址导入。备份含健康信息，请妥善保管。导入会替换当前档案与记录。</p>
+<div class="actions"><button id="export">导出 JSON</button><button id="import">导入 JSON</button></div><input id="upload" type="file" accept=".json,application/json" hidden></div>
+</section>
+<div id="status" class="status" role="status" aria-live="polite"></div>
+</main>
+<nav aria-label="主导航"><button data-tab="home" aria-current="true">今天</button><button data-tab="log">打卡</button><button data-tab="trends">趋势</button><button data-tab="profile">档案</button></nav>
+</div>
+<script>
+'use strict';
+const key = 'tim.health.v1';
+const get = id => document.getElementById(id);
+const metrics = ['leftPain','rightPain','leftAngle','rightAngle'];
+const options = {wake:['没有','有'],dress:['轻松','有点困难','明显困难'],response:['更轻松','差不多','更痛']};
+const blank = () => ({version:1,profile:{name:'',age:null,goal:'',timeline:''},entries:{}});
+const validDate = value => /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0,10) === value;
+const localDate = () => new Intl.DateTimeFormat('sv-SE',{year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+const number = (value,max,min=0) => value === null || value === '' || value === undefined ? null :
+  Number.isInteger(Number(value)) && Number(value) >= min && Number(value) <= max ? Number(value) : null;
+const shortText = (value,max) => typeof value === 'string' ? value.slice(0,max) : '';
+function normalize(raw) {
+  if (!raw || raw.version !== 1 || !raw.profile || !raw.entries || Array.isArray(raw.entries) || typeof raw.entries !== 'object') throw Error('备份格式不兼容');
+  const result = blank();
+  for (const [field,max] of Object.entries({name:60,goal:3000,timeline:6000})) result.profile[field] = shortText(raw.profile[field],max);
+  result.profile.age = number(raw.profile.age,120,1);
+  for (const [date,row] of Object.entries(raw.entries)) {
+    if (!validDate(date) || !row || typeof row !== 'object') throw Error('备份含无效记录日期或内容');
+    const clean = {note:shortText(row.note,3000)};
+    for (const field of metrics) clean[field] = number(row[field],field.endsWith('Pain') ? 10 : 180);
+    for (const [field,values] of Object.entries(options)) clean[field] = values.includes(row[field]) ? row[field] : '';
+    result.entries[date] = clean;
+  }
+  return result;
+}
+let state = blank();
+const message = value => { get('status').textContent = value; };
+try { const saved = localStorage.getItem(key); if(saved) state = normalize(JSON.parse(saved)); }
+catch { message('无法读取本机档案，请检查浏览器存储权限或导入已有备份。'); }
+function save(next) {
+  try { localStorage.setItem(key,JSON.stringify(next)); state = next; return true; }
+  catch { message('保存失败，请检查浏览器存储空间或权限。'); return false; }
+}
+function show(id) {
+  for (const section of document.querySelectorAll('main section')) section.hidden = section.id !== id;
+  for (const button of document.querySelectorAll('[data-tab]')) button.setAttribute('aria-current',String(button.dataset.tab === id));
+  get('screen').scrollTop = 0;
+  message('');
+}
+function fill(form,data) {
+  for (const field of Array.from(form.elements)) if(field.name && field.name !== 'date') field.value = data[field.name] ?? '';
+}
+function loadDay(date) { get('entry').elements.date.value = date; fill(get('entry'),state.entries[date] ?? {}); }
+function element(tag,value,className) {
+  const node = document.createElement(tag); node.textContent = value; if(className) node.className = className; return node;
+}
+const display = value => value ?? '—';
+function render() {
+  const dates = Object.keys(state.entries).sort();
+  const latest = dates.at(-1);
+  const row = state.entries[latest] ?? {};
+  get('today').textContent = localDate();
+  get('latestDate').textContent = latest ?? '还没有记录';
+  get('summary').replaceChildren();
+  for (const side of ['left','right']) {
+    const block = document.createElement('div');
+    block.append(element('small',side === 'left' ? '左肩' : '右肩'),
+      element('div',display(row[side+'Pain'])+' / 10','metric'),
+      element('small','外旋 '+display(row[side+'Angle'])+'°'));
+    get('summary').append(block);
+  }
+  get('guidance').textContent = row.response === '更痛' ?
+    '上次活动后次日更痛。今天把动作幅度和次数减小；反复加重时请联系康复治疗师。' :
+    '在舒服的范围保持轻柔活动。打卡时记录脱衣和外旋，留意第二天有没有更痛。';
+  const history = get('history');
+  history.replaceChildren();
+  if(!dates.length) history.append(element('p','保存第一条打卡后开始追踪。','hint'));
+  for (const date of dates.slice().reverse()) {
+    const item = state.entries[date];
+    const block = element('div','','record');
+    block.append(element('h3',date),element('p','疼痛 左 '+display(item.leftPain)+' / 右 '+display(item.rightPain)+' · 外旋 左 '+display(item.leftAngle)+'° / 右 '+display(item.rightAngle)+'°'),
+      element('p',[item.wake && '痛醒 '+item.wake,item.dress && '脱衣 '+item.dress,item.response && '次日 '+item.response].filter(Boolean).join(' · '),'hint'));
+    if(item.note) block.append(element('p',item.note));
+    const edit = element('button','编辑'); edit.onclick = () => { loadDay(date); show('log'); };
+    const remove = element('button','删除','danger'); remove.onclick = () => {
+      if(!confirm('删除 '+date+' 的记录？')) return;
+      const entries = {...state.entries}; delete entries[date];
+      if(save({...state,entries})) { loadDay(get('entry').elements.date.value); render(); message('已删除记录'); }
+    };
+    const actions = element('div','','actions'); actions.append(edit,remove); block.append(actions); history.append(block);
+  }
+  renderChart();
+}
+function renderChart() {
+  const chart = get('chart'); chart.replaceChildren();
+  const dates = Object.keys(state.entries).sort().slice(-14);
+  const angle = get('metric').value === 'angle';
+  const suffix = angle ? 'Angle' : 'Pain';
+  const maximum = angle ? 180 : 10;
+  if(!dates.some(date => ['left','right'].some(side => state.entries[date][side+suffix] !== null))) {
+    chart.append(element('p','这个指标还没有可绘制的数据。','hint')); return;
+  }
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns,'svg');
+  svg.setAttribute('viewBox','0 0 320 140'); svg.setAttribute('role','img'); svg.setAttribute('aria-label',angle ? '双肩主动外旋趋势' : '双肩疼痛趋势');
+  function draw(tag,attrs,value) {
+    const shape = document.createElementNS(ns,tag);
+    for(const [key,val] of Object.entries(attrs)) shape.setAttribute(key,val);
+    if(value !== undefined) shape.textContent = value;
+    svg.append(shape);
+  }
+  for(const fraction of [0,.5,1]) {
+    const y = 112 - 96*fraction;
+    draw('line',{x1:30,x2:310,y1:y,y2:y,stroke:'#d9dfd3'});
+    draw('text',{x:1,y:y+4,'font-size':10,fill:'#52665b'},maximum*fraction);
+  }
+  for(const [side,color] of [['left','#25644c'],['right','#985137']]) {
+    let previous = null;
+    dates.forEach((date,index) => {
+      const value = state.entries[date][side+suffix];
+      if(value === null) { previous = null; return; }
+      const x = dates.length === 1 ? 170 : 34+index*270/(dates.length-1);
+      const y = 112-value*96/maximum;
+      if(previous) draw('line',{x1:previous.x,y1:previous.y,x2:x,y2:y,stroke:color,'stroke-width':2});
+      draw('circle',{cx:x,cy:y,r:4,fill:color});
+      previous = {x,y};
+    });
+  }
+  draw('text',{x:34,y:134,'font-size':10,fill:'#52665b'},dates[0].slice(5));
+  if(dates.length > 1) draw('text',{x:304,y:134,'text-anchor':'end','font-size':10,fill:'#52665b'},dates.at(-1).slice(5));
+  chart.append(svg);
+}
+document.querySelectorAll('[data-tab],[data-go]').forEach(button => {
+  button.onclick = () => {
+    const target = button.dataset.tab ?? button.dataset.go;
+    if(target === 'log') loadDay(localDate());
+    show(target);
+  };
+});
+get('entry').elements.date.onchange = event => fill(get('entry'),state.entries[event.target.value] ?? {});
+get('entry').onsubmit = event => {
+  event.preventDefault();
+  const {date,...entry} = Object.fromEntries(new FormData(event.currentTarget));
+  if(!validDate(date)) { message('请选择有效日期'); return; }
+  const next = normalize({...state,entries:{...state.entries,[date]:entry}});
+  if(save(next)) { render(); message('已保存 '+date+' 的记录'); }
+};
+get('profileForm').onsubmit = event => {
+  event.preventDefault();
+  const profile = Object.fromEntries(new FormData(event.currentTarget));
+  if(save(normalize({...state,profile}))) message('已保存健康档案');
+};
+get('metric').onchange = renderChart;
+get('export').onclick = () => {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}));
+  const link = document.createElement('a'); link.href = url; link.download = 'Tim-backup-'+localDate()+'.json'; link.click();
+  setTimeout(() => URL.revokeObjectURL(url),1000); message('已生成备份');
+};
+get('import').onclick = () => get('upload').click();
+get('upload').onchange = async event => {
+  const file = event.target.files[0]; event.target.value = ''; if(!file) return;
+  try {
+    if(file.size > 5_000_000) throw Error('备份文件过大');
+    const next = normalize(JSON.parse(await file.text()));
+    if(!confirm('用这份备份替换本机档案及 '+Object.keys(state.entries).length+' 条记录？')) return;
+    if(save(next)) { fill(get('profileForm'),state.profile); loadDay(localDate()); render(); message('已导入备份'); }
+  } catch(error) { message('导入失败：'+error.message); }
+};
+fill(get('profileForm'),state.profile);
+loadDay(localDate()); render();
+</script>
+</body>
+</html>
