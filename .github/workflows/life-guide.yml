@@ -1,0 +1,26 @@
+name: Sync Life guide
+on:
+  schedule:
+    - cron: '17 20 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: eternity4719/HowToLiveBetter
+          path: upstream-guide
+          persist-credentials: false
+      - run: python3 Life/sync.py upstream-guide
+      - name: Publish changed guide data
+        run: |
+          git add Life/data
+          git diff --cached --quiet && exit 0
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -m "Sync Life guide with upstream"
+          git push
