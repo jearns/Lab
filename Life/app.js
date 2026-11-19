@@ -42,8 +42,42 @@ function render(){
  if(screen==='wizard')return survey();if(screen==='settings')return settings();if(screen==='editSlot')return editSlot();if(screen==='steps'||screen==='meal'||screen==='note')return recordForm();if(screen==='bridge')return bridge();if(screen==='member')return member();if(screen==='history')return history();if(screen==='quiz')return quiz();if(screen==='poster')return poster();if(screen==='read')return reader();if(screen==='comments')return community();
  if(tab==='family')return family();if(tab==='log')return log();if(tab==='book')return library();today()
 }
-function today(){if(!p().setup){page('今日手记','初次见面',`<section class="card hero"><span class="label">我的生活方案</span><h2>今天，从一件<br>小事开始。</h2><p>选好生活重心和空闲时段，Life 会把指南变成每天一到三件小事。</p><div class="actions">${btn('定制我的一天','wizard','primary')}</div></section>`);return}
- const list=plan();cursor=Math.min(cursor,list.length-1);const x=list[cursor],a=tasks[x.k],d=day(),done=list.filter(s=>d['done'+s.slot]==='完成').length, status=d['done'+x.slot];page('今日手记',new Intl.DateTimeFormat('zh-CN',{month:'long',day:'numeric',weekday:'short'}).format(new Date()),`<section class="card hero"><span class="label">${esc(x.t)}　/　${a[0]}</span><h2>${a[1]}</h2><p>${a[2]}</p><div class="actions">${btn(status?status+' · 撤销':x.k==='guide'?'开始阅读':'去打卡',status?'undo':'check','primary')}${status?'':btn('今天跳过','skip')}</div></section><div class="between"><small>今日完成 ${done} / ${list.length}</small>${btn('查看依据','basis')+btn('安排与提醒','settings')}</div><div class="bar"><i style="width:${done/list.length*100}%"></i></div><div class="between">${btn('上一张','prevTask')}<small>${cursor+1} / ${list.length}</small>${btn('下一张','nextTask')}</div>`)}
+let introSlide = 0;
+let showIntro = new URLSearchParams(location.search).has('intro');
+const introStats = {stars:76526, forks:6799, date:'2026-11-19'};
+let statsChecked = false;
+
+function paintPopularity(stats){
+ const box=$('guidePopularity');
+ if(!box)return;
+ box.innerHTML=`<a href="${repo}/stargazers" target="_blank" rel="noopener"><strong>☆ ${stats.stars.toLocaleString('en-US')}</strong><span>GitHub 星标</span></a><a href="${repo}/forks" target="_blank" rel="noopener"><strong>${stats.forks.toLocaleString('en-US')}</strong><span>项目分叉（Fork）</span></a><small>统计于<br>${esc(stats.date)}</small>`;
+}
+async function refreshPopularity(){
+ let stats=introStats;
+ try{const cached=JSON.parse(localStorage.getItem('life.guide.popularity'));if(cached&&Number.isSafeInteger(cached.stars)&&Number.isSafeInteger(cached.forks)&&cached.date>=stats.date)stats=cached}catch{}
+ paintPopularity(stats);
+ if(statsChecked||stats.date===nowDay())return;
+ statsChecked=true;
+ try{
+  const r=await fetch('https://api.github.com/repos/eternity4719/HowToLiveBetter',{referrerPolicy:'no-referrer'});if(!r.ok)return;
+  const {stargazers_count:stars,forks_count:forks}=await r.json();if(!Number.isSafeInteger(stars)||!Number.isSafeInteger(forks))return;
+  stats={stars,forks,date:nowDay()};localStorage.setItem('life.guide.popularity',JSON.stringify(stats));paintPopularity(stats)
+ }catch{}
+}
+function guideIntroduction(){
+ const choices=['为什么值得读','谁在读','试读一条'];
+ const count=book?.chapters.reduce((total,ch)=>total+ch.entries.length,0)||772;
+ const panels=[
+  `<article class="guideCover"><small>eternity4719 著　·　开放阅读</small><h2>高性价比<br>人生指南</h2><p>一天只有这么多精力，<br>哪件小事，值得今天就做？</p><div id="guidePopularity" class="guideNumbers"></div></article><p class="introCopy">从坐进车里扣上安全带，到把「以后多陪孩子」写进今晚的日程。${count} 条建议都摊开了成本、可能的收益和证据出处。挑一条用得上的，今天就能试。</p>`,
+  `<article class="introReviews"><h2>他们为什么翻开这本书？</h2><section><small>少数派作者 · Benx_AI　/　9 月 28 日</small><p>他认为这本书「值得收藏」，尤其欣赏它把行动的代价、收益和证据摆在一起。他也开发了相关的清单工具。</p><a href="https://sspai.com/post/115118" target="_blank" rel="noopener">读他的完整评价</a></section><section><small>小众软件 · 青小蛙　/　10 月 11 日</small><p>他把它选入「10 个有意思的 GitHub 项目」，点出了一处好用的设计：读到一条建议，顺着出处就能自己查证。</p><a href="https://www.appinn.com/10-tools-github/" target="_blank" rel="noopener">看项目选介</a></section></article>`,
+  `<article class="introSamples"><h2>从你今天会遇到的事读起</h2>${[['04','1','想多陪孩子，今晚几点开始？','把愿望写成有时间、有地点的行动。'],['01','1','一家人上车，后排也系好了吗？','读一条几秒钟就能做到的出行建议。'],['04','7','一件难事拖了很久，从哪里下手？','看看怎样把大任务拆成能开始的第一步。']].map(([c,n,t,h])=>`<a href="${guidePath(c,n)}" data-entry="${c}/${n}"><strong>${t}</strong><span>${h}</span></a>`).join('')}</article>`
+ ];
+ page('今日手记','指南导读',`<section class="card introCard"><div class="introTabs">${choices.map((label,i)=>`<button aria-pressed="${i===introSlide}" data-do="introSlide:${i}">${label}</button>`).join('')}</div><div class="introBody">${panels[introSlide]}</div><div class="actions introFoot">${introSlide!==2?btn('选一条试读','introSlide:2','primary'):btn('浏览全部章节','allChapters')}${btn(p().setup?'回到今日行动':'定制我的一天','introDone')}</div></section>`);
+ if(introSlide===0)refreshPopularity()
+}
+
+function today(){if(showIntro||!p().setup||!p().sawGuideIntro)return guideIntroduction();
+ const list=plan();cursor=Math.min(cursor,list.length-1);const x=list[cursor],a=tasks[x.k],d=day(),done=list.filter(s=>d['done'+s.slot]==='完成').length, status=d['done'+x.slot];page('今日手记',new Intl.DateTimeFormat('zh-CN',{month:'long',day:'numeric',weekday:'short'}).format(new Date()),`<section class="card hero"><div class="between"><span class="label">${esc(x.t)}　/　${a[0]}</span>${btn('关于人生指南','showIntro')}</div><h2>${a[1]}</h2><p>${a[2]}</p><div class="actions">${btn(status?status+' · 撤销':x.k==='guide'?'开始阅读':'去打卡',status?'undo':'check','primary')}${status?'':btn('今天跳过','skip')}</div></section><div class="between"><small>今日完成 ${done} / ${list.length}</small>${btn('查看依据','basis')+btn('安排与提醒','settings')}</div><div class="bar"><i style="width:${done/list.length*100}%"></i></div><div class="between">${btn('上一张','prevTask')}<small>${cursor+1} / ${list.length}</small>${btn('下一张','nextTask')}</div>`)}
 function survey(){const u=p();const parts=[
  `<span class="label">生活阶段</span><h2>你的一天怎样度过？</h2><div class="row"><label>年龄（选填）<input id="age" style="width:6em" type="number" min="1" max="120" value="${esc(u.age||'')}"></label><label>称呼<input id="who" maxlength="12" value="${esc(u.name)}"></label></div><label>当前阶段<select id="phase">${opts(['日常生活','退休生活','在校学习','工作生活','照护家人'].map(x=>[x,x]),u.phase)}</select></label>`,
  `<span class="label">当前重心</span><h2>先把精力留给哪件事？</h2><label>首要目标<select id="focus">${opts(Object.keys(focusMap).map(x=>[x,x]),u.focus)}</select></label><label>每天安排<select id="load">${opts([[1,'一件 · 轻量'],[2,'两件 · 适中'],[3,'三件 · 完整']],u.load)}</select></label><label>延伸阅读主题<select id="interest">${opts([['','按目标匹配'],...(book?.chapters||[]).map(c=>[c.id,c.title])],u.interest||'')}</select></label>`,
@@ -151,6 +185,10 @@ function calendar(){const stamp=new Date().toISOString().replace(/[-:]/g,'').rep
 async function action(act){const [key,arg]=act.split(':');let u=p(),d=day(),list=plan(),x=list[cursor]||list[0];
  switch(key){
  case 'tab':if(arg==='book')return listRoute(chapter,query);if(location.hash.startsWith('#guide/'))setPath('');tab=arg;screen='';recordSlot=null;if(tab==='today')cursor=pick();break;
+ case 'showIntro':showIntro=true;introSlide=0;break;
+ case 'introSlide':introSlide=Number(arg);break;
+ case 'allChapters':return listRoute('01');
+ case 'introDone':u.sawGuideIntro=true;showIntro=false;introSlide=0;if(!u.setup){wizard=0;screen='wizard'}else cursor=pick();break;
  case 'wizard':wizard=0;screen='wizard';break;
  case 'wizBack':wizard--;break;
  case 'wizNext':if(wizard===0){if(!$('who').value.trim())return toast('请输入称呼');if(!$('age').checkValidity())return toast('请检查年龄');u.age=+$('age').value;u.name=$('who').value.trim();u.phase=$('phase').value;wizard++}else if(wizard===1){u.focus=$('focus').value;u.interest=$('interest').value;u.load=+$('load').value;wizard++}else{let t=u.times.slice(0,u.load).map((v,i)=>$('t'+i).value);if(t.some(v=>!v))return toast('请补全时间');t.forEach((v,i)=>u.times[i]=v);u.setup=true;u.prefs={};screen='';tab='today';cursor=pick()}break;
